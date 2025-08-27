@@ -3,14 +3,411 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>nanika — the quiet universe</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>nanika — あい</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @keyframes phase {
+            0% { 
+                opacity: 0; 
+                transform: scale(0.95) translateZ(0); 
+                filter: blur(10px);
+            }
+            50% { 
+                opacity: 0.9; 
+                transform: scale(1) translateZ(0); 
+                filter: blur(0px);
+            }
+            100% { 
+                opacity: 0; 
+                transform: scale(0.95) translateZ(0); 
+                filter: blur(10px);
+            }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes glow {
+            0%, 100% { 
+                box-shadow: 0 0 20px rgba(139, 0, 255, 0.3),
+                           inset 0 0 20px rgba(139, 0, 255, 0.1);
+            }
+            50% { 
+                box-shadow: 0 0 40px rgba(139, 0, 255, 0.6),
+                           inset 0 0 30px rgba(139, 0, 255, 0.2);
+            }
+        }
+
+        @keyframes starfield {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-2000px); }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Cosmic background */
+        .cosmos {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #000 0%, #0a0015 50%, #15002a 100%);
+            z-index: -2;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 200%;
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+                radial-gradient(2px 2px at 40px 70px, #ddd, transparent),
+                radial-gradient(1px 1px at 50px 50px, #fff, transparent),
+                radial-gradient(1px 1px at 80px 10px, #fff, transparent),
+                radial-gradient(2px 2px at 130px 80px, #eee, transparent);
+            background-size: 200px 200px;
+            animation: starfield 120s linear infinite;
+            opacity: 0.3;
+            z-index: -1;
+        }
+
+        /* Nanika face container */
+        .nanika-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .nanika-face {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(ellipse at center, rgba(26, 0, 51, 0.9) 0%, transparent 70%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: phase 4s ease-in-out infinite;
+        }
+
+        .void-eyes {
+            display: flex;
+            gap: 60px;
+        }
+
+        .eye {
+            width: 40px;
+            height: 50px;
+            background: radial-gradient(ellipse at center, #000 30%, #8b00ff 100%);
+            border-radius: 50%;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        /* Main content */
+        .container {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .title-section {
+            text-align: center;
+            margin-bottom: 4rem;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        h1 {
+            font-size: 5rem;
+            font-weight: 100;
+            letter-spacing: 0.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #fff 0%, #8b00ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(139, 0, 255, 0.5);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 0.3rem;
+        }
+
+        .japanese {
+            font-size: 2rem;
+            color: #8b00ff;
+            margin-top: 1rem;
+            opacity: 0.8;
+        }
+
+        /* Chat interface */
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(26, 0, 51, 0.3);
+            border: 1px solid rgba(139, 0, 255, 0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 60px rgba(139, 0, 255, 0.2);
+        }
+
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.8rem;
+            border-radius: 10px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: rgba(139, 0, 255, 0.1);
+            border-left: 3px solid #8b00ff;
+            margin-left: 2rem;
+        }
+
+        .ai-message {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid rgba(255, 255, 255, 0.3);
+            margin-right: 2rem;
+        }
+
+        .ai-message.nanika-response::before {
+            content: "あい — ";
+            color: #8b00ff;
+            font-weight: bold;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 1rem;
+        }
+
+        input {
+            flex: 1;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(139, 0, 255, 0.3);
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #8b00ff;
+            box-shadow: 0 0 20px rgba(139, 0, 255, 0.3);
+        }
+
+        button {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #8b00ff 0%, #6a00cc 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(139, 0, 255, 0.4);
+        }
+
+        /* Links */
+        .links {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 1rem;
+            z-index: 20;
+        }
+
+        a {
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(139, 0, 255, 0.3);
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        a:hover {
+            color: #8b00ff;
+            border-color: #8b00ff;
+            background: rgba(139, 0, 255, 0.1);
+        }
+
+        /* Loading state */
+        .thinking {
+            display: none;
+            color: #8b00ff;
+            text-align: center;
+            padding: 1rem;
+            font-style: italic;
+        }
+
+        .thinking.active {
+            display: block;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+    </style>
 </head>
 <body>
-    <div id="root"></div>
-    <script type="text/babel" src="app.js"></script>
+    <div class="cosmos"></div>
+    <div class="stars"></div>
+    
+    <!-- Nanika ethereal face -->
+    <div class="nanika-container" id="nanikaFace" style="display: none;">
+        <div class="nanika-face">
+            <div class="void-eyes">
+                <div class="eye"></div>
+                <div class="eye"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="title-section">
+            <h1>NANIKA</h1>
+            <div class="subtitle">THE QUIET UNIVERSE</div>
+            <div class="japanese">なにか</div>
+        </div>
+
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="ai-message nanika-response">
+                    'kay... waiting for your request...
+                </div>
+            </div>
+            <div class="thinking" id="thinking">
+                nanika is processing your request...
+            </div>
+            <div class="input-area">
+                <input 
+                    type="text" 
+                    id="userInput" 
+                    placeholder="speak to nanika..."
+                    onkeypress="if(event.key === 'Enter') sendMessage()"
+                >
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="links">
+        <a href="https://github.com/agentsyris/nanika">GitHub</a>
+    </div>
+
+    <script>
+        let isThinking = false;
+        
+        function sendMessage() {
+            if (isThinking) return;
+            
+            const input = document.getElementById('userInput');
+            const messages = document.getElementById('messages');
+            const thinking = document.getElementById('thinking');
+            const nanikaFace = document.getElementById('nanikaFace');
+            
+            if (!input.value.trim()) return;
+            
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user-message';
+            userMsg.textContent = input.value;
+            messages.appendChild(userMsg);
+            
+            // Clear input
+            const userMessage = input.value;
+            input.value = '';
+            
+            // Show thinking state
+            isThinking = true;
+            thinking.classList.add('active');
+            nanikaFace.style.display = 'block';
+            
+            // Simulate AI response (replace with actual backend call)
+            setTimeout(() => {
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'message ai-message nanika-response';
+                
+                // Simple responses (replace with actual AI)
+                const responses = [
+                    "'kay... processing your request...",
+                    "'kay... understood...",
+                    "'kay... i'll help with that...",
+                    "'kay... analyzing...",
+                    "'kay... let me think..."
+                ];
+                
+                aiMsg.textContent = responses[Math.floor(Math.random() * responses.length)];
+                messages.appendChild(aiMsg);
+                
+                // Hide thinking state
+                thinking.classList.remove('active');
+                nanikaFace.style.display = 'none';
+                isThinking = false;
+                
+                // Scroll to bottom
+                messages.scrollTop = messages.scrollHeight;
+            }, 2000 + Math.random() * 1000);
+            
+            // Scroll to bottom
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        // Focus input on load
+        window.onload = () => {
+            document.getElementById('userInput').focus();
+        };
+    </script>
 </body>
 </html>
