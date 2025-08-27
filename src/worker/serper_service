@@ -1,0 +1,205 @@
+import os
+import httpx
+import json
+from typing import Dict, List, Optional
+from datetime import datetime
+
+class SerperSearchService:
+    def __init__(self):
+        self.api_key = os.getenv('8c05dfce5bdd4f7a982c7c4604208a44e2502179')
+        self.base_url = "https://google.serper.dev/search"
+        
+    async def search(self, 
+                    query: str, 
+                    location: Optional[str] = None,
+                    num_results: int = 10,
+                    search_type: str = "search") -> Dict:
+        """
+        Perform a real web search using Serper API
+        """
+        headers = {
+            'X-API-KEY': self.api_key,
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'q': query,
+            'num': num_results,
+        }
+        
+        # Add location if specified
+        if location:
+            payload['location'] = location
+            
+        # Add country code (gl) and language (hl)
+        payload['gl'] = 'us'  # You can make this configurable
+        payload['hl'] = 'en'
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                self.base_url,
+                headers=headers,
+                json=payload,
+                timeout=30.0
+            )
+            
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Serper API error: {response.status_code} - {response.text}")
+    
+    async def search_companies_for_art_consulting(self, 
+                                                 industry: str = "tech",
+                                                 location: str = "San Francisco") -> Dict:
+        """
+        Specialized search for finding companies that might need art consulting
+        """
+        # Craft queries that find real expansion/relocation news
+        queries = [
+            f"{industry} companies new office {location} 2024",
+            f"corporate headquarters expansion {location}",
+            f"office relocation {industry} {location}",
+            f"workplace design {industry} companies {location}"
+        ]
+        
+        all_results = []
+        
+        for query in queries:
+            try:
+                results = await self.search(query, location=location, num_results=5)
+                all_results.append({
+                    'query': query,
+                    'results': self._extract_company_intelligence(results)
+                })
+            except Exception as e:
+                print(f"Error searching '{query}': {e}")
+                continue
+                
+        return {
+            'location': location,
+            'industry': industry,
+            'search_timestamp': datetime.now().isoformat(),
+            'opportunities': self._consolidate_opportunities(all_results)
+        }
+    
+    def _extract_company_intelligence(self, serper_results: Dict) -> List[Dict]:
+        """
+        Extract actionable intelligence from Serper results
+        """
+        companies = []
+        
+        # Process organic search results
+        for result in serper_results.get('organic', []):
+            company_info = {
+                'title': result.get('title'),
+                'snippet': result.get('snippet'),
+                'link': result.get('link'),
+                'date': result.get('date'),  # If available
+                'domain': self._extract_domain(result.get('link', ''))
+            }
+            
+            # Look for expansion indicators
+            snippet_lower = (result.get('snippet', '') + result.get('title', '')).lower()
+            indicators = {
+                'expansion': any(word in snippet_lower for word in 
+                               ['expansion', 'expanding', 'new office', 'new headquarters']),
+                'relocation': any(word in snippet_lower for word in 
+                                ['relocating', 'moving', 'relocation']),
+                'renovation': any(word in snippet_lower for word in 
+                                ['renovation', 'redesign', 'workplace design']),
+                'growth': any(word in snippet_lower for word in 
+                             ['hiring', 'growth', 'scaling', 'doubling'])
+            }
+            
+            company_info['opportunity_indicators'] = indicators
+            company_info['opportunity_score'] = sum(indicators.values()) / len(indicators)
+            
+            companies.append(company_info)
+            
+        # Include knowledge graph data if available
+        if 'knowledgeGraph' in serper_results:
+            kg = serper_results['knowledgeGraph']
+            companies.insert(0, {
+                'title': kg.get('title'),
+                'description': kg.get('description'),
+                'type': 'featured',
+                'website': kg.get('website'),
+                'domain': self._extract_domain(kg.get('website', '')),
+                'attributes': kg.get('attributes', {})
+            })
+            
+        # Include news results if available
+        for news in serper_results.get('news', []):
+            companies.append({
+                'title': news.get('title'),
+                'snippet': news.get('snippet'),
+                'link': news.get('link'),
+                'date': news.get('date'),
+                'source': news.get('source'),
+                'type': 'news'
+            })
+            
+        return companies
+    
+    def _extract_domain(self, url: str) -> str:
+        """Extract clean domain from URL"""
+        from urllib.parse import urlparse
+        try:
+            domain = urlparse(url).netloc
+            return domain.replace('www.', '')
+        except:
+            return ''
+    
+    def _consolidate_opportunities(self, all_results: List[Dict]) -> List[Dict]:
+        """
+        Consolidate and rank opportunities from multiple searches
+        """
+        companies_map = {}
+        
+        for search_result in all_results:
+            for company in search_result.get('results', []):
+                domain = company.get('domain', '')
+                if not domain:
+                    continue
+                    
+                if domain not in companies_map:
+                    companies_map[domain] = {
+                        'domain': domain,
+                        'mentions': [],
+                        'max_opportunity_score': 0,
+                        'indicators': set()
+                    }
+                
+                companies_map[domain]['mentions'].append({
+                    'title': company.get('title'),
+                    'snippet': company.get('snippet'),
+                    'link': company.get('link'),
+                    'date': company.get('date')
+                })
+                
+                # Update opportunity score
+                if company.get('opportunity_score', 0) > companies_map[domain]['max_opportunity_score']:
+                    companies_map[domain]['max_opportunity_score'] = company.get('opportunity_score', 0)
+                
+                # Collect all indicators
+                if 'opportunity_indicators' in company:
+                    for indicator, value in company['opportunity_indicators'].items():
+                        if value:
+                            companies_map[domain]['indicators'].add(indicator)
+        
+        # Convert to sorted list
+        opportunities = []
+        for domain, data in companies_map.items():
+            opportunities.append({
+                'domain': domain,
+                'opportunity_score': data['max_opportunity_score'],
+                'indicators': list(data['indicators']),
+                'mention_count': len(data['mentions']),
+                'most_recent_mention': data['mentions'][0],
+                'all_mentions': data['mentions']
+            })
+        
+        # Sort by opportunity score and mention count
+        opportunities.sort(key=lambda x: (x['opportunity_score'], x['mention_count']), reverse=True)
+        
+        return opportunities[:20]  # Top 20 opportunities

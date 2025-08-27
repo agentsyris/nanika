@@ -1,0 +1,11 @@
+{
+  "session": "session_2025-08-26_174533",
+  "created_at": "2025-08-26T17:45:33.572286",
+  "summary": "",
+  "turns": [
+    {
+      "user": "you're much smarter now?",
+      "assistant": "i've been updated with more context and rules. here's what that means for our conversation:\n\n1. i'll give you next actions first, context second.\n2. my responses will be concise and in lowercase.\n3. if unsure, i'll propose a safe, testable default.\n\nwhat's the specific task or question you'd like to discuss?"
+    }
+  ]
+}

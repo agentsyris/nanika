@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pilot",
+  "type": "object",
+  "properties": {
+    "id": {"type": "string"},
+    "prospect_id": {"type": "string", "description": "ID of the prospect participating in the pilot"},
+    "start_date": {"type": "string", "format": "date"},
+    "end_date": {"type": "string", "format": "date"},
+    "objectives": {"type": "string"},
+    "deliverables": {"type": "string"},
+    "status": {"type": "string", "enum": ["proposed", "active", "completed", "abandoned"]},
+    "metrics": {"type": "object", "additionalProperties": {"type": "number"}},
+    "feedback": {"type": "string"}
+  },
+  "required": ["id", "prospect_id", "start_date", "status"]
+}

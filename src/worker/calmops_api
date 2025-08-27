@@ -1,0 +1,106 @@
+# src/api/calmops_api.py
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from pydantic import BaseModel
+from typing import Optional, List
+import redis
+import json
+import uuid
+
+app = FastAPI()
+redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
+
+class ValidationRequest(BaseModel):
+    market: str = "all"  # all, new_york, new_jersey, south_florida, los_angeles
+
+class PilotRequest(BaseModel):
+    validated_prospects: List[dict]
+
+class OutreachRequest(BaseModel):
+    market: str = "new_york"
+    target_count: int = 50
+
+@app.post("/calmops/validate")
+def queue_validation(request: ValidationRequest):
+    """Week 1: Queue validation search"""
+    task = {
+        'id': str(uuid.uuid4()),
+        'type': 'validate_problem',
+        'market': request.market
+    }
+    
+    redis_client.lpush('calmops_queue', json.dumps(task))
+    
+    return {
+        'task_id': task['id'],
+        'message': f'Searching for validation prospects in {request.market}',
+        'status': 'queued'
+    }
+
+@app.post("/calmops/find-pilots")
+def queue_pilot_search(request: PilotRequest):
+    """Week 2-3: Find pilot candidates"""
+    task = {
+        'id': str(uuid.uuid4()),
+        'type': 'find_pilots',
+        'validated_prospects': request.validated_prospects
+    }
+    
+    redis_client.lpush('calmops_queue', json.dumps(task))
+    
+    return {
+        'task_id': task['id'],
+        'message': 'Finding best pilot candidates',
+        'status': 'queued'
+    }
+
+@app.post("/calmops/scale-outreach")
+def queue_outreach(request: OutreachRequest):
+    """Week 5-6: Scale outreach"""
+    task = {
+        'id': str(uuid.uuid4()),
+        'type': 'scale_outreach',
+        'market': request.market,
+        'target_count': request.target_count
+    }
+    
+    redis_client.lpush('calmops_queue', json.dumps(task))
+    
+    return {
+        'task_id': task['id'],
+        'message': f'Finding {request.target_count} targets in {request.market}',
+        'status': 'queued'
+    }
+
+@app.get("/calmops/result/{task_id}")
+def get_result(task_id: str):
+    """Get task results"""
+    result = redis_client.get(f'result:{task_id}')
+    
+    if result:
+        return json.loads(result)
+    else:
+        return {
+            'task_id': task_id,
+            'status': 'pending',
+            'message': 'Task is still processing or not found'
+        }
+
+@app.get("/calmops/dashboard")
+def get_dashboard():
+    """Get current week's priorities and progress"""
+    # This would track your actual progress
+    return {
+        'current_week': 1,
+        'priority': 'Validate Problem with 10 Target Prospects',
+        'tasks_completed': [
+            'Set up Serper API',
+            'Configure target markets'
+        ],
+        'tasks_pending': [
+            'Find 10 prospects',
+            'Send LinkedIn messages',
+            'Schedule calls'
+        ],
+        'success_criteria': '8/10 confirm pain points',
+        'markets': ['new_york', 'new_jersey', 'south_florida', 'los_angeles']
+    }

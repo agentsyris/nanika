@@ -1,0 +1,3 @@
+from typing import Dict, Any
+def scale_outreach_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    ...

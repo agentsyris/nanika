@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CaseStudy",
+  "type": "object",
+  "properties": {
+    "id": {"type": "string"},
+    "pilot_id": {"type": "string"},
+    "title": {"type": "string"},
+    "summary": {"type": "string"},
+    "metrics": {"type": "object", "additionalProperties": {"type": "number"}},
+    "quotes": {"type": "array", "items": {"type": "string"}},
+    "asset_url": {"type": "string", "format": "uri"},
+    "published_at": {"type": "string", "format": "date-time"}
+  },
+  "required": ["id", "pilot_id", "title", "summary", "metrics"]
+}

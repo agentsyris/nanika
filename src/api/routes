@@ -1,0 +1,69 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import redis
+import json
+import uuid
+
+app = FastAPI()
+redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
+
+class CompanySearchRequest(BaseModel):
+    company_name: str
+    include_linkedin: bool = True
+    include_news: bool = True
+
+class LeadGenerationRequest(BaseModel):
+    industry: str
+    location: str
+    keywords: List[str] = []
+    company_size: Optional[str] = None
+
+@app.post("/search/company")
+async def search_company(request: CompanySearchRequest):
+    """Queue a company research task with real data"""
+    task = {
+        'id': str(uuid.uuid4()),
+        'type': 'company_research',
+        'company_name': request.company_name,
+        'include_linkedin': request.include_linkedin,
+        'include_news': request.include_news
+    }
+    
+    # Add to Redis queue
+    redis_client.lpush('task_queue', json.dumps(task))
+    
+    return {
+        'task_id': task['id'],
+        'status': 'queued',
+        'message': f'Researching {request.company_name} with real data...'
+    }
+
+@app.post("/search/leads")
+async def generate_leads(request: LeadGenerationRequest):
+    """Generate real leads based on criteria"""
+    task = {
+        'id': str(uuid.uuid4()),
+        'type': 'lead_generation',
+        'criteria': {
+            'industry': request.industry,
+            'location': request.location,
+            'keywords': request.keywords,
+            'company_size': request.company_size
+        }
+    }
+    
+    redis_client.lpush('task_queue', json.dumps(task))
+    
+    return {
+        'task_id': task['id'],
+        'status': 'queued',
+        'message': 'Searching for real companies matching your criteria...'
+    }
+
+@app.get("/task/{task_id}")
+async def get_task_result(task_id: str):
+    """Get results of a search task"""
+    result = redis_client.get(f'result:{task_id}')
+    if result:
+        return json.loads(result)
+    return {'status': 'pending', 'message': 'Task still processing...'}

@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prospect",
+  "type": "object",
+  "properties": {
+    "id": {"type": "string", "description": "UUID for the prospect"},
+    "name": {"type": "string"},
+    "company_name": {"type": "string"},
+    "company_url": {"type": "string", "format": "uri"},
+    "contact_email": {"type": "string", "format": "email"},
+    "contact_linkedin": {"type": "string", "format": "uri"},
+    "source_url": {"type": "string", "format": "uri", "description": "URL where the prospect was discovered"},
+    "notes": {"type": "string"},
+    "status": {"type": "string", "enum": ["new", "approved", "contacted", "responded", "disqualified"]},
+    "tags": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["id", "name", "company_name", "company_url", "contact_email", "source_url", "status"]
+}

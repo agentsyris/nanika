@@ -1,0 +1,42 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  api:
+    build: ./src/api
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - HARUKA_KB=/app/knowledge
+    volumes:
+      - ./data/knowledge:/app/knowledge
+      - ./data/artifacts:/app/artifacts
+      - ./data/logs:/app/logs
+    ports: ["8000:8000"]
+    depends_on: [redis]
+
+  worker:
+    build: ./src/worker
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - HARUKA_KB=/app/knowledge
+    volumes:
+      - ./data/knowledge:/app/knowledge
+      - ./data/artifacts:/app/artifacts
+      - ./data/logs:/app/logs
+      - ./configs/haruka.routing.yaml:/app/haruka.routing.yaml:ro
+      - ./configs/haruka.system.txt:/app/haruka.system.txt:ro   
+    depends_on: [redis]
+
+  scheduler:
+    build: ./src/scheduler
+    environment:
+      - HARUKA_API=http://api:8000   # talks to your API inside the docker network
+    volumes:
+      - ./configs/rules.yaml:/app/rules.yaml:ro
+    depends_on:
+      - api
+      - redis
+

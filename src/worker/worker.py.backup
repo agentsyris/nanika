@@ -1,0 +1,177 @@
+# worker.py - enhanced with orchestration
+
+import os
+import json
+import time
+import yaml
+import httpx
+import redis
+import pathlib
+import datetime
+
+# --- config & paths ---
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+OLLAMA = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+KB_DIR = pathlib.Path(os.environ.get("NANIKA_KB", "/app/knowledge"))
+ART_DIR = pathlib.Path("/app/artifacts")
+ROUTING_PATH = pathlib.Path("/app/nanika.routing.yaml")
+SYSTEM_PROMPT_PATH = pathlib.Path("/app/nanika.system.txt")
+
+ART_DIR.mkdir(parents=True, exist_ok=True)
+r = redis.Redis.from_url(REDIS_URL)
+
+# Import orchestration templates
+try:
+    from orchestrator import TASK_TEMPLATES
+except:
+    TASK_TEMPLATES = {}
+
+def load_routing():
+    if ROUTING_PATH.exists():
+        try:
+            return yaml.safe_load(ROUTING_PATH.read_text()) or {}
+        except Exception:
+            return {}
+    return {}
+
+def pick_model(intent: str, routing: dict) -> str:
+    intent_lower = (intent or "").lower()
+    for route in routing.get("routes", []):
+        for key in route.get("match", []):
+            if key.lower() in intent_lower:
+                return route.get("model") or routing.get("default_model", "llama3.1:70b-instruct-q4_K_M")
+    return routing.get("default_model", "llama3.1:70b-instruct-q4_K_M")
+
+def system_prompt() -> str:
+    if SYSTEM_PROMPT_PATH.exists():
+        try:
+            return SYSTEM_PROMPT_PATH.read_text()
+        except Exception:
+            pass
+    return "you are nanika — a calm, systematic, entrepreneurial hive-mind."
+
+def kb_snippets(max_chars: int = 12000) -> str:
+    texts = []
+    total = 0
+    if KB_DIR.exists():
+        for p in KB_DIR.rglob("*"):
+            if p.suffix.lower() in [".md", ".txt"]:
+                try:
+                    chunk = p.read_text()[:4000]
+                    texts.append(chunk)
+                    total += len(chunk)
+                    if total >= max_chars:
+                        break
+                except Exception:
+                    continue
+    return "\n\n".join(texts)
+
+def call_ollama(model: str, prompt: str, timeout_s: int = 120) -> str:
+    body = {"model": model, "prompt": prompt, "stream": False}
+    with httpx.Client(timeout=timeout_s) as client:
+        resp = client.post(f"{OLLAMA}/api/generate", json=body)
+    resp.raise_for_status()
+    return (resp.json().get("response") or "").strip()
+
+def save_artifact(text: str, intent: str) -> str:
+    day = datetime.date.today().isoformat()
+    outdir = ART_DIR / day
+    outdir.mkdir(parents=True, exist_ok=True)
+    safe_intent = (intent or "task").strip().replace("/", "_").replace(" ", "_")
+    existing = sorted(outdir.glob(f"{safe_intent}_*.md"))
+    n = len(existing) + 1
+    path = outdir / f"{safe_intent}_{n:03d}.md"
+    path.write_text(text)
+    return str(path)
+
+def handle_orchestrated(intent: str, instruction: str, context: dict) -> str:
+    """Handle multi-step orchestrated tasks"""
+    
+    # Check if this matches a template
+    task_type = context.get("task_type", intent)
+    
+    if task_type in TASK_TEMPLATES:
+        print(f"[orchestrating] {task_type}")
+        outputs = []
+        subtasks = TASK_TEMPLATES[task_type]["subtasks"]
+        
+        for i, subtask in enumerate(subtasks):
+            print(f"  [step {i+1}/{len(subtasks)}] {subtask['intent']}")
+            
+            # Build context with previous outputs
+            enhanced_prompt = system_prompt() + "\n\n"
+            if outputs:
+                enhanced_prompt += f"Previous step output:\n{outputs[-1]}\n\n"
+            enhanced_prompt += f"Task: {subtask['instruction']}\n\nProvide specific, actionable output."
+            
+            model = subtask["model"]
+            result = call_ollama(model, enhanced_prompt)
+            outputs.append(result)
+            
+            # Save intermediate
+            save_artifact(result, f"{task_type}_step{i+1}")
+        
+        # Combine all outputs
+        final = f"# {task_type} - complete output\n\n"
+        for i, output in enumerate(outputs, 1):
+            final += f"## Step {i}\n\n{output}\n\n---\n\n"
+        
+        return final
+    
+    # Not orchestrated, return None to fall through
+    return None
+
+# Load routing once
+ROUTING = load_routing()
+
+# --- worker loop ---
+while True:
+    try:
+        item = r.brpop("nanika:tasks", timeout=5)
+        if not item:
+            continue
+
+        _, raw = item
+        task = json.loads(raw)
+
+        intent = task.get("intent", "")
+        instruction = task.get("instruction", "")
+        context = task.get("context", {}) or {}
+        request_id = task.get("request_id", "")
+
+        # Try orchestrated handling first
+        answer = handle_orchestrated(intent, instruction, context)
+        
+        if not answer:
+            # Regular single-model processing
+            model = pick_model(intent, ROUTING)
+            prompt = f"""{system_prompt()}
+
+context (condensed knowledge):
+{kb_snippets()}
+
+task:
+intent: {intent}
+instruction: {instruction}
+extra: {json.dumps(context)}
+
+requirements:
+- produce a concrete, step-by-step answer
+- if creating an artifact (email, plan, script), output the artifact only
+- keep tone minimal, lowercase, decisive
+"""
+            answer = call_ollama(model, prompt)
+
+        # Save output
+        artifact_path = save_artifact(answer, intent)
+        print(f"\n[saved] {artifact_path}")
+        
+        # If there's a request_id, save response for the UI
+        if request_id:
+            response_key = f"nanika:response:{request_id}"
+            r.setex(response_key, 300, json.dumps({"text": answer}))
+
+    except Exception as e:
+        print(f"[worker-error] {e}")
+
+    time.sleep(0.2)

@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: nanika-redis
+    ports:
+      - "6380:6379"  # Changed from 6379:6379 to avoid conflict
+    volumes:
+      - redis_data:/data
+    networks:
+      - nanika_network
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: nanika-searxng
+    ports:
+      - "8888:8080"
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888/
+    volumes:
+      - ./configs/searxng:/etc/searxng
+    networks:
+      - nanika_network
+
+  api:
+    build: ./src/api
+    container_name: nanika-api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERPER_API_KEY=${SERPER_API_KEY}
+    volumes:
+      - ./src/api:/app
+      - ./data:/data
+    depends_on:
+      - redis
+    networks:
+      - nanika_network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build: ./src/worker
+    container_name: nanika-worker
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERPER_API_KEY=${SERPER_API_KEY}
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    volumes:
+      - ./src/worker:/app
+      - ./data:/data
+    depends_on:
+      - redis
+    networks:
+      - nanika_network
+    command: python worker.py
+
+  scheduler:
+    build: ./src/scheduler
+    container_name: nanika-scheduler
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./src/scheduler:/app
+      - ./data:/data
+    depends_on:
+      - redis
+    networks:
+      - nanika_network
+
+networks:
+  nanika_network:
+    driver: bridge
+
+volumes:
+  redis_data:

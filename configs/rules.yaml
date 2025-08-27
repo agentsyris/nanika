@@ -1,0 +1,41 @@
+jobs:
+  # Morning prep - runs at 6am ET (10am UTC)
+  - name: morning_business_prep
+    trigger: { type: cron, hour: 10, minute: 0 }
+    intent: orchestrate
+    instruction: >
+      prepare today's business execution package:
+      1. generate 10 new outreach messages for prospects
+      2. create follow-up messages for anyone we contacted 3 days ago
+      3. draft one linkedin post about workflow optimization
+      4. update tracking spreadsheet template
+      5. list today's top 3 priorities
+    context:
+      task_type: daily_business_ops
+
+  # Afternoon check - runs at 2pm ET (6pm UTC)  
+  - name: afternoon_review
+    trigger: { type: cron, hour: 18, minute: 0 }
+    intent: plan
+    instruction: >
+      review morning outputs and create end-of-day summary:
+      what was generated, what needs human action, what's pending for tomorrow
+
+  # Weekly prospect research - Sundays at 8pm ET
+  - name: weekly_prospect_research
+    trigger: { type: cron, day_of_week: sun, hour: 0, minute: 0 }
+    intent: orchestrate
+    instruction: >
+      research 20 new target companies for next week.
+      include company size, recent news, creative team structure, and personalized hook for outreach.
+    context:
+      task_type: validate_prospects
+
+  # Content generation - MWF at 7am ET
+  - name: content_creation
+    trigger: { type: cron, day_of_week: "mon,wed,fri", hour: 11, minute: 0 }
+    intent: research
+    instruction: >
+      write one piece of thought leadership content about creative operations.
+      rotate between: case study analysis, workflow tips, tool comparisons, industry trends.
+      600-800 words, include specific examples and metrics.

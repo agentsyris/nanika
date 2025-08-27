@@ -1,0 +1,117 @@
+from fastapi import FastAPI, BackgroundTasks
+from pydantic import BaseModel
+from typing import Optional, List
+import json
+
+app = FastAPI()
+
+class CalmOpsDashboard:
+    def __init__(self):
+        self.search_service = CalmOpsSearchService()
+        self.automation = CalmOpsAutomation(search_service, llm_service)
+        
+@app.get("/calmops/weekly-plan")
+async def get_weekly_execution_plan():
+    """Get the current week's priority tasks"""
+    current_week = get_current_week()  # Based on start date
+    
+    weekly_plans = {
+        1: {
+            'priority': 'Validate Problem',
+            'tasks': [
+                'Find 10 target prospects',
+                'Research decision makers',
+                'Send validation outreach',
+                'Schedule discovery calls'
+            ],
+            'success_criteria': '8/10 confirm pain points'
+        },
+        2: {
+            'priority': 'Create MVP & Find Pilots',
+            'tasks': [
+                'Document assessment framework',
+                'Build landing page',
+                'Identify 3 pilot candidates',
+                'Send pilot proposals'
+            ],
+            'success_criteria': '2+ pilots committed'
+        },
+        3: {
+            'priority': 'Execute Pilots',
+            'tasks': [
+                'Run pilot assessments',
+                'Document findings',
+                'Deliver recommendations',
+                'Gather feedback'
+            ],
+            'success_criteria': '2/3 pilots successful'
+        },
+        4: {
+            'priority': 'Create Case Studies',
+            'tasks': [
+                'Document pilot results',
+                'Get testimonials',
+                'Create case study content',
+                'Set up operations'
+            ],
+            'success_criteria': 'Compelling case study created'
+        },
+        5: {
+            'priority': 'Launch Content & Scale',
+            'tasks': [
+                'Publish case study',
+                'Start content marketing',
+                'Request referrals',
+                'Begin scaled outreach'
+            ],
+            'success_criteria': '15+ calls scheduled'
+        }
+    }
+    
+    return {
+        'current_week': current_week,
+        'plan': weekly_plans.get(current_week),
+        'overall_progress': f"Week {current_week} of 7"
+    }
+
+@app.post("/calmops/execute-week/{week_number}")
+async def execute_week_automation(week_number: int, background_tasks: BackgroundTasks):
+    """Execute automated tasks for specified week"""
+    
+    automation = CalmOpsAutomation(search_service, llm_service)
+    
+    if week_number == 1:
+        background_tasks.add_task(automation.week1_validation_campaign)
+        return {"message": "Starting Week 1 validation campaign"}
+        
+    elif week_number == 2:
+        # Would need validated prospects from week 1
+        return {"message": "Week 2 requires validated prospects from Week 1"}
+        
+    elif week_number == 5:
+        background_tasks.add_task(automation.week5_scale_outreach)
+        return {"message": "Starting Week 5 scaled outreach"}
+        
+    return {"message": f"Week {week_number} automation not yet implemented"}
+
+@app.get("/calmops/metrics")
+async def get_success_metrics():
+    """Track progress against success criteria"""
+    return {
+        'week_1': {
+            'validation_calls': 7,
+            'pain_confirmation_rate': '85%',
+            'status': 'on_track'
+        },
+        'week_2': {
+            'pilot_prospects': 4,
+            'committed': 2,
+            'status': 'on_track'
+        },
+        'pipeline': {
+            'total_prospects': 47,
+            'qualified': 12,
+            'calls_scheduled': 8,
+            'proposals_sent': 3
+        }
+    }

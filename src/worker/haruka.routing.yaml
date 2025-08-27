@@ -1,0 +1,12 @@
+default_model: llama3.1:70b-instruct-q4_K_M
+routes:
+  - name: strategy
+    match: ["plan", "roadmap", "prioritize", "decision", "messaging", "positioning"]
+    model: llama3.1:70b-instruct-q4_K_M
+  - name: research
+    match: ["summarize", "compare", "synthesize", "analyze notes", "extract"]
+    model: deepseek-r1:8b
+  - name: build
+    match: ["code", "docker", "compose", "script", "api", "regex", "fix error"]
+    model: qwen3-coder:30b
+

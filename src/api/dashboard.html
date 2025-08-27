@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nanika dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0a0a0a; }
+        .artifact-card:hover { box-shadow: 0 0 30px rgba(139, 92, 246, 0.2); }
+    </style>
+</head>
+<body class="text-gray-200">
+    <div class="container mx-auto p-6">
+        <header class="mb-8">
+            <h1 className="text-3xl font-mono lowercase">nanika dashboard</h1>
+            <p class="text-purple-400 text-sm">autonomous business operations</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-gray-900 p-4 rounded-lg border border-purple-900/30">
+                <div class="text-2xl font-bold" id="artifact-count">0</div>
+                <div class="text-sm text-gray-400">artifacts today</div>
+            </div>
+            <div class="bg-gray-900 p-4 rounded-lg border border-purple-900/30">
+                <div class="text-2xl font-bold" id="task-count">0</div>
+                <div class="text-sm text-gray-400">tasks in queue</div>
+            </div>
+            <div class="bg-gray-900 p-4 rounded-lg border border-purple-900/30">
+                <div class="text-2xl font-bold" id="time">--:--</div>
+                <div class="text-sm text-gray-400">current time</div>
+            </div>
+        </div>
+
+        <div class="mb-4 flex gap-4">
+            <button onclick="refreshData()" class="px-4 py-2 bg-purple-900/50 hover:bg-purple-800/50 rounded">
+                refresh
+            </button>
+            <button onclick="toggleAutoRefresh()" id="auto-btn" class="px-4 py-2 bg-gray-900 hover:bg-gray-800 rounded">
+                auto-refresh: off
+            </button>
+        </div>
+
+        <div id="artifacts" class="space-y-4">
+            <!-- Artifacts will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        let autoRefresh = false;
+        let interval = null;
+
+        async function refreshData() {
+            try {
+                // Get artifacts
+                const response = await fetch('/api/dashboard');
+                const data = await response.json();
+                
+                document.getElementById('artifact-count').textContent = data.artifacts_count || 0;
+                document.getElementById('time').textContent = new Date().toLocaleTimeString();
+                
+                // Get queue length
+                const queueResponse = await fetch('/api/queue-status');
+                const queueData = await queueResponse.json();
+                document.getElementById('task-count').textContent = queueData.queue_length || 0;
+                
+                // Display artifacts
+                const artifactsDiv = document.getElementById('artifacts');
+                if (data.artifacts && data.artifacts.length > 0) {
+                    artifactsDiv.innerHTML = data.artifacts.map(artifact => `
+                        <div class="artifact-card bg-gray-900 p-4 rounded-lg border border-purple-900/30 transition-all">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-lg font-mono">${artifact.name}</h3>
+                                <span class="text-xs text-gray-500">${new Date(artifact.created).toLocaleTimeString()}</span>
+                            </div>
+                            <pre class="text-sm text-gray-400 whitespace-pre-wrap overflow-hidden">${artifact.preview}</pre>
+                            <button onclick="viewArtifact('${artifact.name}')" class="mt-2 text-purple-400 hover:text-purple-300 text-sm">
+                                view full →
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    artifactsDiv.innerHTML = '<div class="text-gray-500">no artifacts yet today</div>';
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const btn = document.getElementById('auto-btn');
+            
+            if (autoRefresh) {
+                btn.textContent = 'auto-refresh: on';
+                btn.className = 'px-4 py-2 bg-purple-900/50 hover:bg-purple-800/50 rounded';
+                interval = setInterval(refreshData, 5000);
+            } else {
+                btn.textContent = 'auto-refresh: off';
+                btn.className = 'px-4 py-2 bg-gray-900 hover:bg-gray-800 rounded';
+                clearInterval(interval);
+            }
+        }
+
+        async function viewArtifact(name) {
+            const response = await fetch(`/api/artifact/${name}`);
+            const data = await response.json();
+            alert(data.content); // For now, just alert. Could open in modal.
+        }
+
+        // Initial load
+        refreshData();
+    </script>
+</body>
+</html>

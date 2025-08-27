@@ -1,0 +1,26 @@
+default_model: llama3.1:70b-instruct-q4_K_M
+
+routes:
+  - name: research
+    match: ["research", "identify", "analyze", "find companies", "target", "prospect"]
+    model: deepseek-r1:8b
+    
+  - name: assessment
+    match: ["assessment", "diagnostic", "questionnaire", "framework", "methodology"]
+    model: deepseek-r1:8b
+    
+  - name: outreach
+    match: ["linkedin", "email", "message", "outreach", "pitch"]
+    model: llama3.1:70b-instruct-q4_K_M  # Better at conversational tone
+    
+  - name: content
+    match: ["case study", "blog", "post", "article", "content"]
+    model: llama3.1:70b-instruct-q4_K_M  # Better at creative writing
+    
+  - name: build
+    match: ["landing page", "website", "copy", "code", "html"]
+    model: qwen3-coder:30b  # If you have it, otherwise llama3.1
+    
+  - name: strategy
+    match: ["plan", "strategy", "roadmap", "prioritize"]
+    model: llama3.1:70b-instruct-q4_K_M  # Needs the bigger model
